@@ -1,0 +1,49 @@
+{
+  "name": "antigravity-supermemory",
+  "version": "0.1.0",
+  "description": "Persistent Supermemory for Google Antigravity: native hooks, MCP tools, and skills",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andylin-hao/antigravity-supermemory.git"
+  },
+  "homepage": "https://github.com/andylin-hao/antigravity-supermemory#readme",
+  "bugs": {
+    "url": "https://github.com/andylin-hao/antigravity-supermemory/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "antigravity-supermemory": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "plugin",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/build-runtime.mjs",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build",
+    "test": "node --import tsx --test test/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "jsonc-parser": "^3.3.1",
+    "proper-lockfile": "^4.1.2",
+    "supermemory": "5.0.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

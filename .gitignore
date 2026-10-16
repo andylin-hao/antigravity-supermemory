@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tgz
+.env
+.env.*
+.agents/plugins/supermemory/
+.agent/rules/supermemory.md
+.agent/workflows/supermemory-init.md
+.agent/supermemory-runtime/
+.agent/supermemory-install.json

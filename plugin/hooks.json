@@ -1,0 +1,10 @@
+{
+  "supermemory": {
+    "PreInvocation": [
+      { "type": "command", "command": "antigravity-supermemory hook PreInvocation", "timeout": 10 }
+    ],
+    "Stop": [
+      { "type": "command", "command": "antigravity-supermemory hook Stop", "timeout": 25 }
+    ]
+  }
+}

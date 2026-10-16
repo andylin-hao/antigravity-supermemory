@@ -1,0 +1,4 @@
+{
+  "name": "supermemory",
+  "description": "Persistent Supermemory: automatic recall, turn capture, scoped memory tools, and codebase indexing. Requires antigravity-supermemory on PATH or the generated CLI installation."
+}

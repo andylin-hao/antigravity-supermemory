@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "supermemory": {
+      "command": "antigravity-supermemory",
+      "args": ["serve"]
+    }
+  }
+}
