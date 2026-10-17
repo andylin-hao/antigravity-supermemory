@@ -24,71 +24,40 @@ and MCP interfaces.
 - **Shared repository identity:** the same canonical namespace and `sm_scope`
   metadata convention as current OpenCode Supermemory.
 
-## Install with npx
+## Quick start
 
 Requires **Node.js 22+**, npm, a Supermemory API key, and Antigravity.
-The package has not been published to npm yet. Use the local release tarball now:
+
+### 1. Install the plugin
+
+Run this command to install for all workspaces. **npx downloads the packaged
+GitHub release automatically:**
 
 ```sh
-npx --yes ./antigravity-supermemory-0.1.0.tgz install --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz install --global
 ```
 
-For all workspaces, replace `--workspace /absolute/path/to/your/project` with
-`--global`. Then [configure your API key](#configure-the-api-key) and restart
-Antigravity.
+The package is available in the **Assets** section of the
+[v0.1.0 release](https://github.com/andylin-hao/antigravity-supermemory/releases/tag/v0.1.0):
+[download `antigravity-supermemory-0.1.0.tgz`](https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz).
+If you download it manually, run `npx --yes ./antigravity-supermemory-0.1.0.tgz install --global`
+from the download directory. Distribution is through GitHub Releases; npm registry
+publication is still pending.
 
-Once this package is published to npm, the equivalent short command will be:
+For a single project, replace `--global` with
+`--workspace /absolute/path/to/your/project`.
 
-```sh
-npx --yes antigravity-supermemory@latest install --workspace /absolute/path/to/your/project
-# Or: npx --yes antigravity-supermemory@latest install --global
-```
+- **Global installation:** `~/.gemini/config/plugins/supermemory/`
+- **Workspace installation:** `<project>/.agents/plugins/supermemory/`
 
-Installation copies a standalone runtime into the managed plugin directory.
-Antigravity can continue using it after npx's cache is cleared or the original
-checkout/tarball is removed. Node.js must remain at the installed executable path;
-rerun installation after changing your Node installation.
+The installer includes the manifest, MCP server, hooks, rule, skill, and a
+standalone runtime. It continues working after npx's cache or the downloaded
+tarball is removed. Rerun installation after changing your Node executable path.
 
-### Install from this checkout
+### 2. Configure your API key
 
-```sh
-git clone https://github.com/andylin-hao/antigravity-supermemory.git
-cd antigravity-supermemory
-npm ci
-npm run build
-
-# Install for a project you open in Antigravity:
-node dist/cli.js install --workspace /absolute/path/to/your/project
-```
-
-This creates `.agents/plugins/supermemory/` in the target project, with a manifest,
-MCP configuration, hooks, rule, skill, and standalone runtime. Generated commands
-use absolute paths to Node and the installed runtime, with no dependency on this
-checkout's `node_modules`.
-
-For all workspaces instead:
-
-```sh
-node dist/cli.js install --global
-```
-
-This installs into `~/.gemini/config/plugins/supermemory/`. Global MCP calls must
-include an absolute `workspace` path; the bundled rule tells the agent to supply
-it. Hooks use the single `workspacePaths` entry in Antigravity's payload. For
-multi-root sessions, automatic hooks skip ambiguous workspaces; tools still work
-with an explicit path. Choose one installation route per workspace to avoid
-duplicate plugin components.
-
-### Configure the API key
-
-Set `SUPERMEMORY_API_KEY` in the environment of the **Antigravity process**, or
-create the global config file printed by:
-
-```sh
-npx --yes ./antigravity-supermemory-0.1.0.tgz config-path
-```
-
-Default: `~/.config/antigravity-supermemory/config.jsonc`
+Create `~/.config/antigravity-supermemory/config.jsonc` (including its parent
+directory) and add your Supermemory key:
 
 ```jsonc
 {
@@ -96,18 +65,32 @@ Default: `~/.config/antigravity-supermemory/config.jsonc`
 }
 ```
 
-The global file is convenient for GUI launches that do not inherit terminal
-environment variables. Keep it outside your repository and restrict its file
-permissions (for example, `chmod 600` on Unix).
-
-Reload Antigravity's customizations/MCP servers or restart the application. Check
-the connection with:
+`~` means your user home directory (for example, `C:\Users\YourName` on Windows).
+For the exact path, run:
 
 ```sh
-npx --yes ./antigravity-supermemory-0.1.0.tgz status --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz config-path
 ```
 
-Then ask Antigravity:
+You can also set `SUPERMEMORY_API_KEY` in the environment of the **Antigravity
+process**. The config file is convenient for GUI launches that do not inherit
+terminal variables. Keep it outside your repository and restrict its permissions
+(for example, `chmod 600` on Unix).
+
+### 3. Restart and verify
+
+Restart Antigravity or reload its customizations/MCP servers. In a new chat, ask:
+
+> Call `supermemory_context` for the current workspace and report whether it succeeds.
+
+A successful response, even with no memories, confirms the plugin is connected.
+You can also check API connectivity from your terminal:
+
+```sh
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz status --workspace /absolute/path/to/your/project
+```
+
+To try saving a memory, ask Antigravity:
 
 > Remember that this project uses npm and tests run with npm test.
 
@@ -118,50 +101,63 @@ In another conversation:
 Supermemory processes uploads asynchronously; queued documents can take minutes
 to become searchable memories.
 
-### Older Antigravity IDE versions
+### Workspace selection
+
+Global MCP calls must include an absolute `workspace` path; the bundled rule tells
+the agent to supply it. Hooks use the single `workspacePaths` entry in Antigravity's
+payload. For multi-root sessions, automatic hooks skip ambiguous workspaces; tools
+still work with an explicit path. Choose one installation route per workspace to
+avoid duplicate plugin components.
+
+## Older Antigravity IDE versions
 
 If your IDE supports MCP but not native plugins/hooks, use:
 
 ```sh
-node dist/cli.js install --legacy --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz install --legacy --workspace /absolute/path/to/your/project
 ```
 
 The installer merges a project-specific server into
 `~/.gemini/antigravity/mcp_config.json` and adds `.agent/rules/supermemory.md` and
 `.agent/workflows/supermemory-init.md`. Existing servers and JSONC comments are
-preserved. If **MCP Servers → View raw config** shows another path, specify it:
-
-```sh
-node dist/cli.js install --legacy --workspace /absolute/path/to/project \
-  --mcp-config /absolute/path/to/mcp_config.json
-```
+preserved. If **MCP Servers → View raw config** shows another path, append
+`--mcp-config /absolute/path/to/mcp_config.json` to the command.
 
 This mode uses agent-driven recall and saving through the rule. **It does not
 automatically capture turns or inject context through hooks.** Run
 `/supermemory-init` to index project knowledge using the workflow.
 
-### Update and uninstall
+## Update and uninstall
 
-To update, rerun the npx install command with the new release tarball (or
-`@latest` after publication). From a checkout, run `npm ci`, `npm run build`, and
-the same install command. Installation is repeatable and refuses to overwrite
-locally modified managed files. Uninstall uses the same scope/mode flags:
-
-```sh
-npx --yes ./antigravity-supermemory-0.1.0.tgz uninstall --workspace /absolute/path/to/project
-```
-
-From the checkout:
+To update, use the packaged `.tgz` URL from the latest
+[GitHub release](https://github.com/andylin-hao/antigravity-supermemory/releases)
+with the same install flags. Installation is repeatable and refuses to overwrite
+locally modified managed files. To remove a global installation:
 
 ```sh
-node dist/cli.js uninstall --workspace /absolute/path/to/project
-# Or: node dist/cli.js uninstall --global
-# Or: node dist/cli.js uninstall --legacy --workspace /absolute/path/to/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz uninstall --global
 ```
+
+For a workspace installation, replace `--global` with `--workspace /absolute/path/to/project`.
+For legacy mode, also add `--legacy`.
 
 Only unmodified managed files (including the runtime) and the matching legacy MCP entry are removed.
 Unrelated configuration, remote memories, API credentials, and capture checkpoints
 are retained. If a managed file was edited, reconcile it before rerunning.
+
+## Install from source
+
+```sh
+git clone https://github.com/andylin-hao/antigravity-supermemory.git
+cd antigravity-supermemory
+npm ci
+npm run build
+node dist/cli.js install --global
+```
+
+All CLI commands above are also available as `node dist/cli.js <command>` from
+the checkout. To build your own distributable tarball, run `npm pack`; it creates
+`antigravity-supermemory-0.1.0.tgz` in the checkout root.
 
 ## Tools
 

@@ -28,7 +28,7 @@
     "build": "tsc -p tsconfig.build.json && node scripts/build-runtime.mjs",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "node --import tsx --test --test-timeout=60000 test/*.test.ts",
     "check": "npm run typecheck && npm test",
     "prepack": "npm run build"
   },
