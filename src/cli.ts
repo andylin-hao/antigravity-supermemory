@@ -7,6 +7,7 @@ import { install, uninstall } from "./install.js";
 import { MemoryService, InputError } from "./memory.js";
 import { safeError } from "./privacy.js";
 import { serve } from "./server.js";
+import { renderStatusline, upstreamStatusline } from "./statusline.js";
 
 const help = `antigravity-supermemory
 
@@ -15,10 +16,12 @@ const help = `antigravity-supermemory
   uninstall [same installation flags]    Remove unmodified managed files
   serve [--workspace PATH]               Start the stdio MCP server
   status --workspace PATH               Check configuration and API connectivity
+  statusline                            Render agy CLI activity from JSON stdin
   config-path                           Print the global JSONC configuration path
   hook PreInvocation|Stop [--workspace PATH]  Handle Antigravity JSON stdin
 
 Legacy mode accepts --mcp-config PATH (use Antigravity's View raw config path).
+Global installs enable the CLI status line; pass --no-statusline to opt out.
 Set SUPERMEMORY_API_KEY or apiKey in the config file before use.
 `;
 
@@ -38,10 +41,22 @@ async function main() {
   const { positionals, values } = parseArgs({ allowPositionals: true, options: {
     workspace: { type: "string" }, global: { type: "boolean" }, legacy: { type: "boolean" },
     "mcp-config": { type: "string" }, help: { type: "boolean", short: "h" },
+    "no-statusline": { type: "boolean" }, upstream: { type: "string" },
   } });
   const [command, event] = positionals;
   const workspace = values.workspace ? resolve(values.workspace) : undefined;
   if (values.help || !command) { console.log(help); return; }
+  if (command === "statusline") {
+    let display = "◪ supermemory · configuration unavailable";
+    let previous = "";
+    try {
+      const input = await stdin();
+      previous = await upstreamStatusline(values.upstream, input);
+      display = await renderStatusline(await loadConfig(), JSON.parse(input));
+    } catch { /* Keep status-line failures out of the interactive terminal. */ }
+    console.log([previous, display].filter(Boolean).join("\n"));
+    return;
+  }
   if (command === "hook") {
     if (event !== "PreInvocation" && event !== "Stop") throw new Error("Unknown hook event");
     const fallback = emptyOutput(event as HookEvent);
@@ -61,7 +76,7 @@ async function main() {
     return;
   }
   if (command === "install" || command === "uninstall") {
-    const path = await (command === "install" ? install : uninstall)({ workspace, global: values.global, legacy: values.legacy, mcpConfig: values["mcp-config"] });
+    const path = await (command === "install" ? install : uninstall)({ workspace, global: values.global, legacy: values.legacy, mcpConfig: values["mcp-config"], noStatusline: values["no-statusline"] });
     console.log(`${command === "install" ? "Installed in" : "Removed managed files from"} ${path}`);
     console.log("Reload Antigravity's customizations/MCP servers or restart the application.");
     return;

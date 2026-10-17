@@ -13,9 +13,10 @@ const manifestSchema = z.object({
   owner: z.literal("antigravity-supermemory"),
   files: z.record(z.string(), z.string()),
   mcp: z.object({ path: z.string(), name: z.string(), entry: z.unknown() }).optional(),
+  statusLine: z.object({ path: z.string(), original: z.unknown().optional(), installed: z.unknown() }).optional(),
 });
 type Manifest = z.infer<typeof manifestSchema>;
-export interface InstallOptions { workspace?: string; global?: boolean; legacy?: boolean; mcpConfig?: string; home?: string }
+export interface InstallOptions { workspace?: string; global?: boolean; legacy?: boolean; mcpConfig?: string; home?: string; noStatusline?: boolean }
 
 async function textIfExists(path: string): Promise<string | undefined> {
   try { return await readFile(path, "utf8"); }
@@ -57,6 +58,23 @@ function editServer(text: string, name: string, entry: unknown): string {
   return applyEdits(text, modify(text, ["mcpServers", name], entry, { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
 }
 
+function settingsObject(text: string): Record<string, unknown> {
+  const value = parseJsonc(text);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Antigravity settings must be an object");
+  return value as Record<string, unknown>;
+}
+
+function editStatusLine(text: string, value: unknown): string {
+  settingsObject(text);
+  return applyEdits(text, modify(text, ["statusLine"], value, { formattingOptions: { insertSpaces: true, tabSize: 2 } }));
+}
+
+function unchangedStatusLine(text: string, expected: unknown): void {
+  if (JSON.stringify(settingsObject(text).statusLine) !== JSON.stringify(expected)) {
+    throw new Error("Preserving modified Antigravity statusLine; restore its managed command before updating or uninstalling");
+  }
+}
+
 export async function install(options: InstallOptions): Promise<string> {
   const loc = locations(options);
   const previous = await textIfExists(loc.manifest);
@@ -69,9 +87,13 @@ export async function install(options: InstallOptions): Promise<string> {
     files[join(runtime, name)] = await readFile(join(packageRoot, "dist", name), "utf8");
   }
   const workspaceArgs = loc.workspace ? ["--workspace", loc.workspace] : [];
-  const entry = { command: process.execPath, args: [cli, "serve", ...workspaceArgs] };
+  // Recent Node versions can honor the proxy environment inherited from agy.
+  const nodeArgs = process.allowedNodeEnvironmentFlags.has("--use-env-proxy") ? ["--use-env-proxy"] : [];
+  const entry = { command: process.execPath, args: [...nodeArgs, cli, "serve", ...workspaceArgs] };
+  const command = [process.execPath, ...nodeArgs, cli].map((v) => shellQuote(v)).join(" ");
   const manifest: Manifest = { owner: "antigravity-supermemory", files: {} };
   let shared: { path: string; text: string } | undefined;
+  let statusSettings: { path: string; text: string } | undefined;
   if (options.legacy) {
     if (await textIfExists(join(loc.workspace!, ".agents", "plugins", "supermemory", "plugin.json"))) throw new Error("Uninstall the native plugin before installing legacy mode");
     const path = resolve(options.mcpConfig ?? join(loc.home, ".gemini", "antigravity", "mcp_config.json"));
@@ -97,12 +119,34 @@ export async function install(options: InstallOptions): Promise<string> {
     }
     await collect(join(packageRoot, "plugin"), loc.plugin);
     files[join(loc.plugin, "mcp_config.json")] = JSON.stringify({ mcpServers: { supermemory: entry } }, null, 2) + "\n";
-    const command = [process.execPath, cli].map((v) => shellQuote(v)).join(" ");
     const suffix = workspaceArgs.map((v) => shellQuote(v)).join(" ");
     files[join(loc.plugin, "hooks.json")] = JSON.stringify({ supermemory: {
       PreInvocation: [{ type: "command", command: `${command} hook PreInvocation ${suffix}`.trim(), timeout: 10 }],
       Stop: [{ type: "command", command: `${command} hook Stop ${suffix}`.trim(), timeout: 25 }],
     } }, null, 2) + "\n";
+  }
+  if (options.global && !options.noStatusline) {
+    const path = join(loc.home, ".gemini", "antigravity-cli", "settings.json");
+    const text = await textIfExists(path) ?? "{}\n";
+    if (owned?.statusLine) unchangedStatusLine(text, owned.statusLine.installed);
+    const original = owned?.statusLine ? owned.statusLine.original : settingsObject(text).statusLine;
+    if (original !== undefined && (!original || typeof original !== "object" || Array.isArray(original))) {
+      throw new Error("Preserving unsupported statusLine configuration; use --no-statusline");
+    }
+    const settings = original as Record<string, unknown> | undefined;
+    let suffix = "";
+    if (typeof settings?.command === "string" && settings.command.trim()) {
+      const upstream = join(runtime, "statusline-upstream.json");
+      files[upstream] = JSON.stringify({ command: settings.command }) + "\n";
+      suffix = ` --upstream ${shellQuote(upstream)}`;
+    }
+    const installed = { ...settings, type: "command", command: `${command} statusline${suffix}`, enabled: true, stack_with_default: settings?.stack_with_default ?? true };
+    statusSettings = { path, text: editStatusLine(text, installed) };
+    manifest.statusLine = { path, original, installed };
+  } else if (owned?.statusLine) {
+    const text = await textIfExists(owned.statusLine.path) ?? "{}\n";
+    unchangedStatusLine(text, owned.statusLine.installed);
+    statusSettings = { path: owned.statusLine.path, text: editStatusLine(text, owned.statusLine.original) };
   }
   // Preflight all owned files before changing any configuration.
   for (const [path, text] of Object.entries(files)) {
@@ -112,8 +156,15 @@ export async function install(options: InstallOptions): Promise<string> {
     }
     manifest.files[path] = hash(text);
   }
+  const obsolete = Object.entries(owned?.files ?? {}).filter(([path]) => !(path in files));
+  for (const [path, expected] of obsolete) {
+    const current = await textIfExists(path);
+    if (current !== undefined && hash(current) !== expected) throw new Error(`Preserving modified file: ${path}`);
+  }
   for (const [path, text] of Object.entries(files)) await atomicWrite(path, text);
   if (shared) await atomicWrite(shared.path, shared.text);
+  if (statusSettings) await atomicWrite(statusSettings.path, statusSettings.text);
+  for (const [path] of obsolete) await rm(path, { force: true });
   await atomicWrite(loc.manifest, JSON.stringify(manifest, null, 2) + "\n");
   return options.legacy ? loc.base : loc.plugin;
 }
@@ -127,6 +178,13 @@ export async function uninstall(options: InstallOptions): Promise<string> {
     const current = await textIfExists(path);
     if (current !== undefined && hash(current) !== expected) throw new Error(`Preserving modified file: ${path}`);
   }
+  let statusSettings: { path: string; text: string } | undefined;
+  if (manifest.statusLine) {
+    const { path, installed, original } = manifest.statusLine;
+    const text = await textIfExists(path) ?? "{}\n";
+    unchangedStatusLine(text, installed);
+    statusSettings = { path, text: editStatusLine(text, original) };
+  }
   if (manifest.mcp) {
     const { path, name, entry } = manifest.mcp;
     const current = await textIfExists(path);
@@ -136,6 +194,7 @@ export async function uninstall(options: InstallOptions): Promise<string> {
       if (existing) await atomicWrite(path, editServer(current, name, undefined));
     }
   }
+  if (statusSettings) await atomicWrite(statusSettings.path, statusSettings.text);
   for (const path of Object.keys(manifest.files)) await rm(path, { force: true });
   await rm(loc.manifest);
   return loc.base;

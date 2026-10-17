@@ -33,14 +33,17 @@ test("standalone installed runtime: MCP handshake, validation, recall, save, and
     const recall = await client.callTool({ name: "supermemory_recall", arguments: { query: "How do I run tests?" } });
     assert.notEqual(recall.isError, true);
     assert.match(JSON.stringify(recall), /Use npm test/);
+    assert.match(JSON.stringify(recall), /supermemory recalled 1 memory/);
     const added = await client.callTool({ name: "supermemory", arguments: { mode: "add", content: "Use npm <private>secret</private>" } });
     assert.notEqual(added.isError, true);
+    assert.match(JSON.stringify(added), /supermemory saved 1 document \(queued\)/);
     const forgotten = await client.callTool({ name: "supermemory", arguments: { mode: "forget", memoryId: "mem_1" } });
     assert.notEqual(forgotten.isError, true);
     const invalid = await client.callTool({ name: "supermemory", arguments: { mode: "add" } });
     assert.equal(invalid.isError, true);
     const context = await client.callTool({ name: "supermemory_context", arguments: {} });
     assert.match(JSON.stringify(context), /Prefers concise answers/);
+    assert.match(JSON.stringify(context), /supermemory recalled 2 memories/);
     assert.doesNotMatch(JSON.stringify(mock.requests), /secret/);
   } finally {
     // Windows locks a running process's cwd. Close it before temp(t)'s earlier

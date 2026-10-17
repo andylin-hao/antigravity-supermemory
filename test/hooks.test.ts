@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { configSchema } from "../src/config.js";
 import { runHook } from "../src/hooks.js";
+import { renderStatusline } from "../src/statusline.js";
+import { readActivity } from "../src/activity.js";
 import { api, temp } from "./helpers.js";
 
 test("hooks recall once per prompt and capture once per completed turn across invocations", async (t) => {
@@ -18,6 +20,8 @@ test("hooks recall once per prompt and capture once per completed turn across in
   assert.match(JSON.stringify(recalled), /Prefers concise answers/);
   assert.match(JSON.stringify(recalled), /Use npm test/);
   assert.match(JSON.stringify(recalled), /mode=add/);
+  assert.match(JSON.stringify(recalled), /supermemory recalled 2 memories/);
+  assert.match(await renderStatusline(config, { conversation_id: "session" }), /recalled 2 memories/);
   assert.doesNotMatch(JSON.stringify(mock.requests), /secret/);
   assert.deepEqual(await runHook("PreInvocation", input, config), {});
   assert.equal(mock.requests.length, 3);
@@ -28,9 +32,12 @@ test("hooks recall once per prompt and capture once per completed turn across in
   await runHook("Stop", input, config);
   const uploads = mock.requests.filter((r) => r.path.endsWith("/document"));
   assert.equal(uploads.length, 1);
+  assert.match(await renderStatusline(config, { session_id: "session" }), /saved 1 document \(queued\)/);
+  const activity = JSON.stringify(await readActivity(config, "session", "recall"));
+  assert.doesNotMatch(activity, /Remember|secret|Use npm|Prefers/);
   assert.match(String(uploads[0]!.body.content), /Done/);
   assert.doesNotMatch(String(uploads[0]!.body.content), /secret/);
-  const state = await readFile(join(config.stateDir, (await readdir(config.stateDir))[0]!), "utf8");
+  const state = await readFile(join(config.stateDir, (await readdir(config.stateDir)).find((name) => name.endsWith(".json"))!), "utf8");
   assert.doesNotMatch(state, /Remember|secret|Done/);
   await appendFile(transcriptPath, JSON.stringify({ step_index: 3, type: "USER_INPUT", content: "How should I run the tests?" }) + "\n");
   await runHook("PreInvocation", input, config);
@@ -52,11 +59,13 @@ test("failed capture is retried with the same document ID; parallel Stop hooks d
   await writeFile(transcriptPath, [ { role: "user", content: "Use npm" }, { role: "assistant", content: "Configured npm" } ].map((row) => JSON.stringify(row)).join("\n"));
   const input = { conversationId: "session", workspacePaths: [root], transcriptPath, fullyIdle: true };
   await assert.rejects(runHook("Stop", input, config));
+  assert.match(await renderStatusline(config, { conversation_id: "session" }), /save unavailable/);
   fail = false;
   await Promise.all([runHook("Stop", input, config), runHook("Stop", input, config)]);
   await runHook("Stop", input, config);
   assert.equal(mock.requests.length, 2);
   assert.equal(mock.requests[0]!.body.id, mock.requests[1]!.body.id);
+  assert.match(await renderStatusline(config, { conversation_id: "session" }), /saved 1 document/);
 });
 
 test("recall timeout is bounded and repeated tool-loop invocations do not retry the same prompt", async (t) => {
@@ -68,10 +77,27 @@ test("recall timeout is bounded and repeated tool-loop invocations do not retry 
   const input = { conversationId: "session", workspacePaths: [root], transcriptPath };
   const start = Date.now();
   assert.deepEqual(await runHook("PreInvocation", input, config), {});
+  const display = await renderStatusline(config, { conversation_id: "session" });
+  assert.match(display, /recall unavailable/);
+  assert.doesNotMatch(display, /recalled 0/);
   assert.ok(Date.now() - start < 2000);
   const count = mock.requests.length;
   await runHook("PreInvocation", input, config);
   assert.equal(mock.requests.length, count);
+});
+
+test("partial recall shows only successfully returned memories", async (t) => {
+  const root = await temp(t);
+  const mock = await api(t, (request, response) => {
+    if (!request.path.endsWith("/profile")) return false;
+    response.statusCode = 503;
+    response.end('{}');
+    return true;
+  });
+  const config = configSchema.parse({ apiKey: "test", baseUrl: mock.url, stateDir: join(root, "state") });
+  const result = await runHook("PreInvocation", { conversationId: "partial", workspacePaths: [root] }, config);
+  assert.match(JSON.stringify(result), /supermemory recalled 1 memory \(partial\)/);
+  assert.match(await renderStatusline(config, { conversation_id: "partial" }), /recalled 1 memory \(partial\)/);
 });
 
 test("disabled capture and ambiguous workspaces never upload", async (t) => {

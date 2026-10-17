@@ -15,8 +15,9 @@ test("native installation is repeatable and uninstall retains unrelated files", 
   assert.ok(hooks.supermemory.PreInvocation[0]!.command.includes(shellQuote(workspace)));
   const mcp = JSON.parse(await readFile(join(target, "mcp_config.json"), "utf8")) as { mcpServers: { supermemory: { args: string[] } } };
   assert.deepEqual(mcp.mcpServers.supermemory.args.slice(-2), ["--workspace", workspace]);
-  assert.equal(mcp.mcpServers.supermemory.args[0], join(target, "runtime", "runtime.mjs"));
-  assert.ok((await readFile(mcp.mcpServers.supermemory.args[0], "utf8")).length > 0);
+  const runtime = mcp.mcpServers.supermemory.args.find((arg) => arg.endsWith("runtime.mjs"));
+  assert.equal(runtime, join(target, "runtime", "runtime.mjs"));
+  assert.ok((await readFile(runtime!, "utf8")).length > 0);
   assert.equal(await install({ workspace }), target);
   await writeFile(join(target, "notes.txt"), "user file");
   await uninstall({ workspace });

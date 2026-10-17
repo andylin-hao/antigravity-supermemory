@@ -14,6 +14,8 @@ and MCP interfaces.
   document IDs and persistent checkpoints. Repeated hooks skip acknowledged saves.
 - **Memory tools:** add, search, profile, list, and forget; plus read-only recall
   and session-context tools.
+- **Visible CLI activity:** a conversation-scoped status line shows recall counts,
+  save progress, and failures. MCP results include a readable activity summary.
 - **Remember requests:** hooks and an always-on rule remind the agent to store the
   fact when you say “remember”, “save this”, or “don't forget”.
 - **Codebase knowledge:** a `supermemory-init` skill explores and remembers build
@@ -34,13 +36,13 @@ Run this command to install for all workspaces. **npx downloads the packaged
 GitHub release automatically:**
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz install --global
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz install --global
 ```
 
 The package is available in the **Assets** section of the
-[v0.1.0 release](https://github.com/andylin-hao/antigravity-supermemory/releases/tag/v0.1.0):
-[download `antigravity-supermemory-0.1.0.tgz`](https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz).
-If you download it manually, run `npx --yes ./antigravity-supermemory-0.1.0.tgz install --global`
+[v0.2.0 release](https://github.com/andylin-hao/antigravity-supermemory/releases/tag/v0.2.0):
+[download `antigravity-supermemory-0.2.0.tgz`](https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz).
+If you download it manually, run `npx --yes ./antigravity-supermemory-0.2.0.tgz install --global`
 from the download directory. Distribution is through GitHub Releases; npm registry
 publication is still pending.
 
@@ -69,7 +71,7 @@ directory) and add your Supermemory key:
 For the exact path, run:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz config-path
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz config-path
 ```
 
 You can also set `SUPERMEMORY_API_KEY` in the environment of the **Antigravity
@@ -87,7 +89,7 @@ A successful response, even with no memories, confirms the plugin is connected.
 You can also check API connectivity from your terminal:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz status --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz status --workspace /absolute/path/to/your/project
 ```
 
 To try saving a memory, ask Antigravity:
@@ -109,12 +111,49 @@ payload. For multi-root sessions, automatic hooks skip ambiguous workspaces; too
 still work with an explicit path. Choose one installation route per workspace to
 avoid duplicate plugin components.
 
+## Visible activity in agy CLI
+
+A global install enables a Supermemory line at the bottom of agy's prompt panel.
+Restart agy after installing or updating. For example:
+
+```text
+◪ supermemory · recalling…
+◪ supermemory · recalled 3 memories · saving…
+◪ supermemory · recalled 3 memories · saved 1 document (queued)
+```
+
+The counts come from completed hook requests in the current conversation:
+recall counts unique returned memories/profile facts, and saves count documents
+accepted during the last capture run. `queued` means extraction is asynchronous.
+The display also distinguishes `recall unavailable`, partial results, interrupted
+requests, disabled hooks, and a missing key. It refreshes when agy updates its
+agent state, so very brief in-progress states may not be visible.
+
+The installer configures `statusLine` in
+`~/.gemini/antigravity-cli/settings.json`, keeping the built-in line by default.
+An existing custom command is rendered first; uninstall restores the original
+configuration. Add `--no-statusline` to `install --global` to opt out (or restore
+the previous line). Workspace-only installs do not change global CLI settings.
+
+Explicit MCP tool results also include an `activity` field, such as
+`supermemory recalled 3 memories`. These appear in tool output rather than the
+hook status line. The custom footer is an agy CLI feature; IDE/headless clients
+can still show the MCP activity summaries.
+
+### Proxy connections
+
+Generated hook/MCP commands enable Node's environment-proxy support when the
+installed Node version provides `--use-env-proxy`. They use the `HTTP_PROXY`,
+`HTTPS_PROXY`, and `NO_PROXY` environment inherited from agy. On older Node 22
+releases, upgrade to a current Node 22/24 release and rerun installation if your
+network requires a proxy.
+
 ## Older Antigravity IDE versions
 
 If your IDE supports MCP but not native plugins/hooks, use:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz install --legacy --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz install --legacy --workspace /absolute/path/to/your/project
 ```
 
 The installer merges a project-specific server into
@@ -135,7 +174,7 @@ with the same install flags. Installation is repeatable and refuses to overwrite
 locally modified managed files. To remove a global installation:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.1.0/antigravity-supermemory-0.1.0.tgz uninstall --global
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.0/antigravity-supermemory-0.2.0.tgz uninstall --global
 ```
 
 For a workspace installation, replace `--global` with `--workspace /absolute/path/to/project`.
@@ -157,7 +196,7 @@ node dist/cli.js install --global
 
 All CLI commands above are also available as `node dist/cli.js <command>` from
 the checkout. To build your own distributable tarball, run `npm pack`; it creates
-`antigravity-supermemory-0.1.0.tgz` in the checkout root.
+`antigravity-supermemory-0.2.0.tgz` in the checkout root.
 
 ## Tools
 
@@ -261,12 +300,14 @@ containers and other agents' config overrides are not automatically discovered.
   later idle Stop. Stable IDs reduce duplication but do not guarantee exactly-once
   processing/billing after an ambiguous response. Removing checkpoints may replay
   old turns; changing transcript indices can change capture identity.
+- Status-line files under the same cache's `activity/` directory store only phase,
+  count, and timestamp, keyed by hashed account/endpoint/conversation identity.
+  They do not store prompts, recalled text, credentials, or API error bodies.
 - Hook errors fail open, print sanitized diagnostics to stderr, and produce valid
   JSON. Capture has a bounded per-hook budget; a large backlog may require later
   Stop events. Pending captures cannot be flushed after Antigravity is killed.
 - Rules guide model behavior; they cannot guarantee that an explicit memory tool
-  is called. There is no native compaction interception, browser OAuth flow, or
-  OpenCode-style status footer in this release.
+  is called. There is no native compaction interception or browser OAuth flow.
 
 ## Development and verification
 
@@ -294,6 +335,7 @@ CLI installer replaces these with absolute commands.
 References: [plugins](https://antigravity.google/docs/plugins/),
 [hooks](https://antigravity.google/docs/hooks/),
 [MCP](https://antigravity.google/docs/mcp/),
+[CLI status line](https://antigravity.google/docs/cli/statusline/),
 [rules](https://antigravity.google/docs/rules/).
 
 MIT licensed.

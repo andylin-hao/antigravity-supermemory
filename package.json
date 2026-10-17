@@ -1,6 +1,6 @@
 {
   "name": "antigravity-supermemory",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Persistent Supermemory for Google Antigravity: native hooks, MCP tools, and skills",
   "type": "module",
   "license": "MIT",
