@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Config } from "./config.js";
 import { hash } from "./identity.js";
 import { MemoryService } from "./memory.js";
-import { redactPrivate } from "./privacy.js";
+import { failureReason, redactPrivate } from "./privacy.js";
 import { withSession } from "./state.js";
 import { completedTurns, readTranscript } from "./transcript.js";
 import { recordActivity, recallNotice } from "./activity.js";
@@ -58,9 +58,10 @@ export async function runHook(
         for (const [index, content] of chunks.entries()) {
           const chunkKey = `${turn.key}:${index}`;
           if (captured.has(chunkKey)) continue;
-          if (Date.now() >= deadline) return empty;
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) return empty;
           await recordActivity(config, input.conversationId, "capture", "running", capturedCount);
-          await service.add(content, "project", "conversation", `${id}_${index}`);
+          await service.add(content, "project", "conversation", `${id}_${index}`, remaining);
           capturedCount++;
           await recordActivity(config, input.conversationId, "capture", "done", capturedCount);
           state.captured.push(chunkKey);
@@ -101,7 +102,8 @@ export async function runHook(
     }
     const results = await Promise.allSettled(requests);
     const failures = results.filter((result) => result.status === "rejected").length;
-    await recordActivity(config, input.conversationId, "recall", !results.length ? "skipped" : failures === 0 ? "done" : failures === results.length ? "failed" : "partial", recalled.size);
+    const rejected = results.find((result) => result.status === "rejected");
+    await recordActivity(config, input.conversationId, "recall", !results.length ? "skipped" : failures === 0 ? "done" : failures === results.length ? "failed" : "partial", recalled.size, rejected ? failureReason(rejected.reason) : undefined);
     if (config.recallMode === "advisory") sections.push("Before answering, use supermemory_recall if stored knowledge could help with this request.");
     if (/\b(remember|save this|don['’]t forget)\b/i.test(query)) {
       sections.push("The user asked to remember something. Use supermemory mode=add to save the durable fact with the appropriate scope.");
@@ -117,7 +119,7 @@ export async function runHook(
   }) ?? empty;
   try { return await execute(); }
   catch (error) {
-    await recordActivity(config, input.conversationId, event === "Stop" ? "capture" : "recall", "failed", capturedCount);
+    await recordActivity(config, input.conversationId, event === "Stop" ? "capture" : "recall", "failed", capturedCount, failureReason(error));
     throw error;
   }
 }

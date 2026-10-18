@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
-import { loadConfig, configPath } from "./config.js";
+import { loadConfig, configPath, hookTimeoutSeconds } from "./config.js";
 import { emptyOutput, runHook, type HookEvent } from "./hooks.js";
 import { install, uninstall } from "./install.js";
 import { MemoryService, InputError } from "./memory.js";
@@ -64,7 +64,7 @@ async function main() {
     const timer = setTimeout(() => {
       console.error("[supermemory] Hook timed out; continuing without memory.");
       process.stdout.write(JSON.stringify(fallback) + "\n", () => process.exit(0));
-    }, event === "Stop" ? 22000 : 8000);
+    }, hookTimeoutSeconds[event] * 1000 - 2000);
     try {
       const input = JSON.parse(await stdin());
       const output = await runHook(event, input, await loadConfig(), workspace);

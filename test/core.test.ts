@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { configSchema, loadConfig } from "../src/config.js";
 import { hash, normalizeRemote, projectIdentity } from "../src/identity.js";
-import { redactPrivate } from "../src/privacy.js";
+import { failureReason, redactPrivate, safeError } from "../src/privacy.js";
 import { completedTurns, parseTranscript } from "../src/transcript.js";
 import { temp } from "./helpers.js";
 
@@ -14,6 +14,17 @@ test("private regions are removed, including nesting and incomplete tags", () =>
   assert.equal(redactPrivate("public <private>secret"), "public");
   assert.equal(redactPrivate("public <private token='x'"), "public");
   assert.equal(redactPrivate("<private>only private</private>"), "");
+});
+
+test("failure diagnostics classify nested timeouts without exposing request data", () => {
+  const error = new Error("api-key-and-private-content", { cause: new AggregateError([
+    Object.assign(new Error("proxy-password"), { code: "ETIMEDOUT" }),
+  ]) });
+  assert.equal(failureReason(error), "timeout");
+  assert.match(safeError(error), /timed out/);
+  assert.doesNotMatch(safeError(error), /api-key|private-content|proxy-password/);
+  assert.equal(failureReason({ cause: { code: "ECONNREFUSED" } }), "network");
+  assert.equal(failureReason({ statusCode: 407 }), "authentication");
 });
 
 test("Git identities share across transport, checkout names, and worktrees", async (t) => {

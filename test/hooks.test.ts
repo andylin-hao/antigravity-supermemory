@@ -79,6 +79,7 @@ test("recall timeout is bounded and repeated tool-loop invocations do not retry 
   assert.deepEqual(await runHook("PreInvocation", input, config), {});
   const display = await renderStatusline(config, { conversation_id: "session" });
   assert.match(display, /recall unavailable/);
+  assert.match(display, /\(timeout\)/);
   assert.doesNotMatch(display, /recalled 0/);
   assert.ok(Date.now() - start < 2000);
   const count = mock.requests.length;
@@ -97,7 +98,7 @@ test("partial recall shows only successfully returned memories", async (t) => {
   const config = configSchema.parse({ apiKey: "test", baseUrl: mock.url, stateDir: join(root, "state") });
   const result = await runHook("PreInvocation", { conversationId: "partial", workspacePaths: [root] }, config);
   assert.match(JSON.stringify(result), /supermemory recalled 1 memory \(partial\)/);
-  assert.match(await renderStatusline(config, { conversation_id: "partial" }), /recalled 1 memory \(partial\)/);
+  assert.match(await renderStatusline(config, { conversation_id: "partial" }), /recalled 1 memory \(partial: API error\)/);
 });
 
 test("disabled capture and ambiguous workspaces never upload", async (t) => {
@@ -138,4 +139,27 @@ test("large Unicode turns resume from acknowledged chunks without private conten
     assert.doesNotMatch(text, /\p{Surrogate}/u);
     assert.doesNotMatch(text, /secret/);
   }
+});
+
+test("capture shares one timeout budget across uploads and resumes acknowledged chunks", async (t) => {
+  const root = await temp(t);
+  let slow = true;
+  const mock = await api(t, async (request) => {
+    if (slow && request.path.endsWith("/document")) await delay(600);
+    return false;
+  });
+  const config = configSchema.parse({ apiKey: "test", baseUrl: mock.url, stateDir: join(root, "state"), requestTimeoutMs: 1000 });
+  const transcriptPath = join(root, "transcript.jsonl");
+  await writeFile(transcriptPath, [
+    { role: "user", content: "Summarize this task" },
+    { role: "assistant", content: "x".repeat(100000) },
+  ].map((row) => JSON.stringify(row)).join("\n"));
+  const input = { conversationId: "budget", workspacePaths: [root], transcriptPath, fullyIdle: true };
+  await assert.rejects(runHook("Stop", input, config));
+  assert.match(await renderStatusline(config, { conversation_id: "budget" }), /save unavailable \(timeout\) \(1 queued\)/);
+  slow = false;
+  await runHook("Stop", input, config);
+  assert.equal(mock.requests.length, 3);
+  assert.equal(mock.requests[1]!.body.id, mock.requests[2]!.body.id);
+  assert.notEqual(mock.requests[0]!.body.id, mock.requests[2]!.body.id);
 });

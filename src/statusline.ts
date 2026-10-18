@@ -4,7 +4,8 @@ import type { Config } from "./config.js";
 import { readActivity, recallNotice, type Activity, type ActivityKind } from "./activity.js";
 
 function describe(kind: ActivityKind, activity: Activity, config: Config, now: number): string {
-  const budget = kind === "recall" ? config.recallTimeoutMs : config.requestTimeoutMs * 2;
+  const budget = kind === "recall" ? config.recallTimeoutMs : config.requestTimeoutMs;
+  const reason = activity.reason && activity.reason !== "unknown" ? activity.reason : undefined;
   if (activity.phase === "running") {
     return now - activity.at > budget + 5000
       ? `${kind === "recall" ? "recall" : "save"} interrupted`
@@ -12,10 +13,10 @@ function describe(kind: ActivityKind, activity: Activity, config: Config, now: n
   }
   if (kind === "recall") {
     if (activity.phase === "skipped") return config.recallMode === "advisory" ? "advisory recall" : "recall skipped (no query)";
-    if (activity.phase === "failed") return "recall unavailable";
-    return `${recallNotice(activity.count).replace(/^supermemory /, "")}${activity.phase === "partial" ? " (partial)" : ""}`;
+    if (activity.phase === "failed") return `recall unavailable${reason ? ` (${reason})` : ""}`;
+    return `${recallNotice(activity.count).replace(/^supermemory /, "")}${activity.phase === "partial" ? ` (partial${reason ? `: ${reason}` : ""})` : ""}`;
   }
-  if (activity.phase === "failed") return `save unavailable${activity.count ? ` (${activity.count} queued)` : ""}`;
+  if (activity.phase === "failed") return `save unavailable${reason ? ` (${reason})` : ""}${activity.count ? ` (${activity.count} queued)` : ""}`;
   return `saved ${activity.count} ${activity.count === 1 ? "document" : "documents"} (queued)`;
 }
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { install, uninstall, shellQuote } from "../src/install.js";
-import { parseJsonc } from "../src/config.js";
+import { configSchema, parseJsonc } from "../src/config.js";
 import { temp } from "./helpers.js";
 
 test("native installation is repeatable and uninstall retains unrelated files", async (t) => {
@@ -11,8 +11,11 @@ test("native installation is repeatable and uninstall retains unrelated files", 
   const workspace = join(root, "project with spaces ' quote");
   await mkdir(workspace);
   const target = await install({ workspace });
-  const hooks = JSON.parse(await readFile(join(target, "hooks.json"), "utf8")) as { supermemory: { PreInvocation: { command: string }[] } };
+  const hooks = JSON.parse(await readFile(join(target, "hooks.json"), "utf8")) as { supermemory: { PreInvocation: { command: string; timeout: number }[]; Stop: { timeout: number }[] } };
   assert.ok(hooks.supermemory.PreInvocation[0]!.command.includes(shellQuote(workspace)));
+  const longest = configSchema.parse({ recallTimeoutMs: 20000, requestTimeoutMs: 60000 });
+  assert.ok(hooks.supermemory.PreInvocation[0]!.timeout * 1000 > longest.recallTimeoutMs);
+  assert.ok(hooks.supermemory.Stop[0]!.timeout * 1000 > longest.requestTimeoutMs);
   const mcp = JSON.parse(await readFile(join(target, "mcp_config.json"), "utf8")) as { mcpServers: { supermemory: { args: string[] } } };
   assert.deepEqual(mcp.mcpServers.supermemory.args.slice(-2), ["--workspace", workspace]);
   const runtime = mcp.mcpServers.supermemory.args.find((arg) => arg.endsWith("runtime.mjs"));

@@ -15,13 +15,16 @@ export const configSchema = z.object({
   maxMemories: z.number().int().min(1).max(20).default(5),
   maxProfileItems: z.number().int().min(1).max(20).default(5),
   similarityThreshold: z.number().min(0).max(1).default(0.55),
-  recallTimeoutMs: z.number().int().min(100).max(10000).default(3000),
-  requestTimeoutMs: z.number().int().min(100).max(15000).default(8000),
+  recallTimeoutMs: z.number().int().min(100).max(20000).default(10000),
+  requestTimeoutMs: z.number().int().min(100).max(60000).default(30000),
   maxContextChars: z.number().int().min(500).max(20000).default(8000),
   stateDir: z.string().min(1).default(join(homedir(), ".cache", "antigravity-supermemory")),
 }).strict();
 
 export type Config = z.infer<typeof configSchema>;
+
+// Above the maximum configured request budgets, leaving time for local I/O.
+export const hookTimeoutSeconds = { PreInvocation: 30, Stop: 70 } as const;
 
 export function configPath(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.SUPERMEMORY_CONFIG ?? join(homedir(), ".config", "antigravity-supermemory", "config.jsonc"));

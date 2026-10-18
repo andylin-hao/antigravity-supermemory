@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { applyEdits, modify } from "jsonc-parser";
-import { parseJsonc } from "./config.js";
+import { hookTimeoutSeconds, parseJsonc } from "./config.js";
 import { hash } from "./identity.js";
 import { z } from "zod";
 
@@ -87,10 +87,8 @@ export async function install(options: InstallOptions): Promise<string> {
     files[join(runtime, name)] = await readFile(join(packageRoot, "dist", name), "utf8");
   }
   const workspaceArgs = loc.workspace ? ["--workspace", loc.workspace] : [];
-  // Recent Node versions can honor the proxy environment inherited from agy.
-  const nodeArgs = process.allowedNodeEnvironmentFlags.has("--use-env-proxy") ? ["--use-env-proxy"] : [];
-  const entry = { command: process.execPath, args: [...nodeArgs, cli, "serve", ...workspaceArgs] };
-  const command = [process.execPath, ...nodeArgs, cli].map((v) => shellQuote(v)).join(" ");
+  const entry = { command: process.execPath, args: [cli, "serve", ...workspaceArgs] };
+  const command = [process.execPath, cli].map((v) => shellQuote(v)).join(" ");
   const manifest: Manifest = { owner: "antigravity-supermemory", files: {} };
   let shared: { path: string; text: string } | undefined;
   let statusSettings: { path: string; text: string } | undefined;
@@ -121,8 +119,8 @@ export async function install(options: InstallOptions): Promise<string> {
     files[join(loc.plugin, "mcp_config.json")] = JSON.stringify({ mcpServers: { supermemory: entry } }, null, 2) + "\n";
     const suffix = workspaceArgs.map((v) => shellQuote(v)).join(" ");
     files[join(loc.plugin, "hooks.json")] = JSON.stringify({ supermemory: {
-      PreInvocation: [{ type: "command", command: `${command} hook PreInvocation ${suffix}`.trim(), timeout: 10 }],
-      Stop: [{ type: "command", command: `${command} hook Stop ${suffix}`.trim(), timeout: 25 }],
+      PreInvocation: [{ type: "command", command: `${command} hook PreInvocation ${suffix}`.trim(), timeout: hookTimeoutSeconds.PreInvocation }],
+      Stop: [{ type: "command", command: `${command} hook Stop ${suffix}`.trim(), timeout: hookTimeoutSeconds.Stop }],
     } }, null, 2) + "\n";
   }
   if (options.global && !options.noStatusline) {

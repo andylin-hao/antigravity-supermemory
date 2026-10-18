@@ -4,12 +4,14 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { Config } from "./config.js";
 import { hash } from "./identity.js";
+import { failureReasons, type FailureReason } from "./privacy.js";
 
 export type ActivityKind = "recall" | "capture";
 const activitySchema = z.object({
   phase: z.enum(["running", "done", "partial", "failed", "skipped"]),
   count: z.number().int().nonnegative(),
   at: z.number(),
+  reason: z.enum(failureReasons).optional(),
 });
 export type Activity = z.infer<typeof activitySchema>;
 
@@ -19,12 +21,12 @@ function activityPath(config: Config, conversationId: string, kind: ActivityKind
 }
 
 /** Display-only state: never persist prompts, memory text, or error bodies. */
-export async function recordActivity(config: Config, conversationId: string, kind: ActivityKind, phase: Activity["phase"], count = 0): Promise<void> {
+export async function recordActivity(config: Config, conversationId: string, kind: ActivityKind, phase: Activity["phase"], count = 0, reason?: FailureReason): Promise<void> {
   const path = activityPath(config, conversationId, kind);
   const temporary = `${path}.${randomUUID()}.tmp`;
   try {
     await mkdir(join(config.stateDir, "activity"), { recursive: true, mode: 0o700 });
-    await writeFile(temporary, JSON.stringify({ phase, count, at: Date.now() } satisfies Activity), { mode: 0o600, flag: "wx" });
+    await writeFile(temporary, JSON.stringify({ phase, count, at: Date.now(), reason } satisfies Activity), { mode: 0o600, flag: "wx" });
     await rename(temporary, path);
   } catch {
     // A status display must never break recall or capture.
