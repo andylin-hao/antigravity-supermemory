@@ -70,7 +70,10 @@ test("standalone CLI and hooks inherit lowercase/uppercase proxies and honor NO_
   const mock = await api(t);
   const tunnel = await proxy(t, mock.url);
   const runtime = join(await install({ workspace: root }), "runtime", "runtime.mjs");
-  for (const env of [{ http_proxy: tunnel.url, HTTP_PROXY: "http://127.0.0.1:1" }, { HTTP_PROXY: tunnel.url }]) {
+  // Windows environment names are case-insensitive; distinct case variants can
+  // only coexist (and have their precedence tested) on POSIX.
+  const conflictingCase = process.platform === "win32" ? {} : { HTTP_PROXY: "http://127.0.0.1:1" };
+  for (const env of [{ http_proxy: tunnel.url, ...conflictingCase }, { HTTP_PROXY: tunnel.url }]) {
     const result = await run(runtime, root, env);
     assert.equal(result.code, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).connected, true);
@@ -92,8 +95,9 @@ test("HTTPS chooses https_proxy or falls back to HTTP_PROXY, with no direct fall
   const mock = await api(t);
   const tunnel = await proxy(t, mock.url);
   const runtime = join(await install({ workspace: root }), "runtime", "runtime.mjs");
+  const conflictingCase = process.platform === "win32" ? {} : { HTTPS_PROXY: "http://127.0.0.1:1" };
   for (const env of [
-    { https_proxy: tunnel.url, HTTPS_PROXY: "http://127.0.0.1:1", http_proxy: "http://127.0.0.1:1" },
+    { https_proxy: tunnel.url, ...conflictingCase, http_proxy: "http://127.0.0.1:1" },
     { HTTPS_PROXY: tunnel.url },
     { http_proxy: tunnel.url },
   ]) {
