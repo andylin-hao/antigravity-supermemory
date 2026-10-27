@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { isAbsolute } from "node:path";
 import type { Config } from "./config.js";
-import { executeMemory, InputError, MemoryService, scopeSchema, toolInput } from "./memory.js";
+import { executeMemory, InputError, MemoryService, queryScopeSchema, toolInput } from "./memory.js";
 import { safeError } from "./privacy.js";
 import { countMemories, recallNotice } from "./activity.js";
 
@@ -36,7 +36,7 @@ export function createServer(config: Config, defaultWorkspace?: string): McpServ
   }, (args) => respond(() => executeMemory(service(args.workspace), args), args.mode));
   server.registerTool("supermemory_recall", {
     description: "Read-only semantic recall of saved project or personal memories relevant to a question.",
-    inputSchema: { query: z.string().trim().min(1).max(8000), scope: scopeSchema.default("project"), limit: z.number().int().min(1).max(50).optional(), workspace },
+    inputSchema: { query: z.string().trim().min(1).max(8000), scope: queryScopeSchema.default("all"), limit: z.number().int().min(1).max(50).optional(), workspace },
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
   }, (args) => respond(() => service(args.workspace).search(args.query, args.scope, args.limit), "search"));
   server.registerTool("supermemory_context", {

@@ -8,8 +8,9 @@ and MCP interfaces.
 ## Features
 
 - **Automatic recall:** profile and recent project facts on the first model call;
-  semantic project recall on each new substantive user prompt. Recall requests run
-  concurrently with a ten-second timeout each and no automatic retries.
+  semantic recall across project and personal repository memories on each new
+  substantive user prompt. Recall requests run concurrently with a ten-second
+  timeout each and no automatic retries.
 - **Automatic capture:** at an idle `Stop`, save new user/assistant turns with stable
   document IDs and persistent checkpoints. Repeated hooks skip acknowledged saves.
 - **Memory tools:** add, search, profile, list, and forget; plus read-only recall
@@ -243,9 +244,11 @@ Antigravity may prefix tool names with the plugin/server name.
 {"mode":"forget","memoryId":"mem_from_search_or_list","scope":"project"}
 ```
 
-**Scopes:** `project` is the default. `user` means personal facts **within the
-current repository**, matching the current OpenCode plugin, not a global profile
-shared across unrelated repositories.
+**Scopes:** `project` is the default for `add`, `list`, and `forget`. `user`
+means personal facts **within the current repository**, matching the current
+OpenCode plugin, not a global profile shared across unrelated repositories.
+`all` is the default for `search` and `supermemory_recall`, searching across
+both `project` and `user` memories in the repository.
 
 **Types:** `project-config`, `architecture`, `error-solution`, `preference`,
 `learned-pattern`, `conversation`.

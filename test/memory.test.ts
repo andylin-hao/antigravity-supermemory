@@ -11,6 +11,7 @@ test("official SDK uses v5 routes, scope filters, and private-safe uploads/searc
   const added = await executeMemory(service, { mode: "add", content: "Use npm <private>password</private>", scope: "user", type: "preference" });
   assert.equal((added as { status: string }).status, "queued");
   await service.search("npm <private>password</private>", "user");
+  await service.search("npm <private>password</private>");
   await service.list("project");
   const profile = await service.profile();
   assert.deepEqual(profile.profile.static, ["Prefers concise answers"]);
@@ -20,10 +21,13 @@ test("official SDK uses v5 routes, scope filters, and private-safe uploads/searc
   assert.deepEqual(mock.requests[0]!.body.metadata, { sm_scope: "personal", type: "preference", source: "antigravity" });
   assert.equal(mock.requests[1]!.body.query, "npm");
   assert.deepEqual(mock.requests[1]!.body.filter, { field: "sm_scope", operator: "eq", value: "personal" });
-  assert.deepEqual(mock.requests[2]!.body.filter, { field: "sm_scope", operator: "eq", value: "project" });
+  assert.equal(mock.requests[2]!.body.filter, undefined);
+  assert.deepEqual(mock.requests[3]!.body.filter, { field: "sm_scope", operator: "eq", value: "project" });
   await assert.rejects(service.add("<private>secret</private>"), /Nothing to save/);
   await assert.rejects(executeMemory(service, { mode: "search" }), /requires query/);
-  assert.equal(mock.requests.length, 4);
+  await assert.rejects(executeMemory(service, { mode: "add", content: "Use npm", scope: "all" }), /project or user scope/);
+  await assert.rejects(executeMemory(service, { mode: "forget", memoryId: "mem_1", scope: "all" }), /project or user scope/);
+  assert.equal(mock.requests.length, 5);
 });
 
 test("forget checks exact namespace and scope before changing memory", async (t) => {

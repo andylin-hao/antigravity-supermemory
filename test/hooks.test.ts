@@ -39,9 +39,13 @@ test("hooks recall once per prompt and capture once per completed turn across in
   assert.doesNotMatch(String(uploads[0]!.body.content), /secret/);
   const state = await readFile(join(config.stateDir, (await readdir(config.stateDir)).find((name) => name.endsWith(".json"))!), "utf8");
   assert.doesNotMatch(state, /Remember|secret|Done/);
-  await appendFile(transcriptPath, JSON.stringify({ step_index: 3, type: "USER_INPUT", content: "How should I run the tests?" }) + "\n");
-  await runHook("PreInvocation", input, config);
-  assert.equal(mock.requests.filter((r) => r.path.endsWith("/search")).length, 2);
+  await appendFile(transcriptPath, JSON.stringify({ step_index: 3, type: "USER_INPUT", content: "How should I run the tests in supermemory?" }) + "\n");
+  const secondRecall = await runHook("PreInvocation", input, config);
+  assert.match(JSON.stringify(secondRecall), /call_mcp_tool/);
+  const searches = mock.requests.filter((r) => r.path.endsWith("/search"));
+  assert.equal(searches.length, 2);
+  assert.equal(searches[0]!.body.filter, undefined);
+  assert.equal(searches[1]!.body.filter, undefined);
 });
 
 test("failed capture is retried with the same document ID; parallel Stop hooks do not duplicate", async (t) => {

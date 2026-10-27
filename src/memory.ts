@@ -7,6 +7,8 @@ import { environmentFetch } from "./transport.js";
 
 export const scopeSchema = z.enum(["project", "user"]);
 export type Scope = z.infer<typeof scopeSchema>;
+export const queryScopeSchema = z.enum(["project", "user", "all"]);
+export type QueryScope = z.infer<typeof queryScopeSchema>;
 export const memoryTypes = z.enum(["project-config", "architecture", "error-solution", "preference", "learned-pattern", "conversation"]);
 export type MemoryType = z.infer<typeof memoryTypes>;
 
@@ -53,11 +55,13 @@ export class MemoryService {
     return { id: result.id, status: result.status, scope, namespace: this.identity.tag };
   }
 
-  async search(query: string, scope: Scope = "project", limit = this.config.maxMemories, timeout?: number) {
+  async search(query: string, scope: QueryScope = "all", limit = this.config.maxMemories, timeout?: number) {
     const clean = redactPrivate(query);
     if (!clean) return { results: [] };
     return this.sdk.search(this.identity.tag, {
-      query: clean.slice(0, 8000), filter: scopeFilter(scope), limit,
+      query: clean.slice(0, 8000),
+      ...(scope === "all" ? {} : { filter: scopeFilter(scope) }),
+      limit,
       threshold: this.config.similarityThreshold,
       searchMode: "memories", rerank: "none", rewriteQuery: false,
     }, this.options(timeout));
@@ -77,9 +81,10 @@ export class MemoryService {
     };
   }
 
-  async list(scope: Scope = "project", limit = 10, timeout?: number) {
+  async list(scope: QueryScope = "project", limit = 10, timeout?: number) {
     return this.sdk.list(this.identity.tag, "memories", {
-      filter: scopeFilter(scope), limit, sort: "createdAt", order: "desc",
+      ...(scope === "all" ? {} : { filter: scopeFilter(scope) }),
+      limit, sort: "createdAt", order: "desc",
     }, this.options(timeout));
   }
 
@@ -102,7 +107,7 @@ export const toolInput = z.object({
   mode: z.enum(["add", "search", "profile", "list", "forget", "help"]).default("help"),
   content: z.string().max(100000).optional(),
   query: z.string().max(8000).optional(),
-  scope: scopeSchema.default("project"),
+  scope: queryScopeSchema.optional(),
   type: memoryTypes.optional(),
   memoryId: z.string().min(1).max(256).optional(),
   limit: z.number().int().min(1).max(50).optional(),
@@ -110,9 +115,14 @@ export const toolInput = z.object({
 
 export const help = {
   modes: { add: "content, scope?, type?", search: "query, scope?, limit?", profile: "query?", list: "scope?, limit?", forget: "memoryId, scope?", help: "" },
-  scopes: "project (default) or user (personal facts in the current repository)",
+  scopes: "project (default for add/list/forget), user (personal facts in the current repository), or all (default for search/recall across both scopes)",
   note: "Add returns a document ID. Search/list return extracted memory IDs for forget. Processing is asynchronous; newly added facts may take minutes to become searchable.",
 };
+
+function requireWriteScope(scope: QueryScope = "project"): Scope {
+  if (scope === "all") throw new InputError("add and forget require project or user scope");
+  return scope;
+}
 
 export async function executeMemory(service: MemoryService, raw: unknown): Promise<unknown> {
   const args = toolInput.parse(raw);
@@ -120,14 +130,14 @@ export async function executeMemory(service: MemoryService, raw: unknown): Promi
     case "help": return help;
     case "add":
       if (!args.content?.trim()) throw new InputError("add requires content");
-      return service.add(args.content, args.scope, args.type);
+      return service.add(args.content, requireWriteScope(args.scope), args.type);
     case "search":
       if (!args.query?.trim()) throw new InputError("search requires query");
-      return service.search(args.query, args.scope, args.limit);
+      return service.search(args.query, args.scope ?? "all", args.limit);
     case "profile": return service.profile(args.query);
-    case "list": return service.list(args.scope, args.limit);
+    case "list": return service.list(args.scope ?? "project", args.limit);
     case "forget":
       if (!args.memoryId) throw new InputError("forget requires memoryId");
-      return service.forget(args.memoryId, args.scope);
+      return service.forget(args.memoryId, requireWriteScope(args.scope));
   }
 }

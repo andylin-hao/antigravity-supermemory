@@ -5,12 +5,20 @@ description: Use Supermemory to recall relevant knowledge and retain durable fac
 
 # Persistent memory
 
-Use the Supermemory MCP tools for the current repository. Pass its absolute
-workspace path when calling a tool, especially in a multi-root or global setup.
+Use the Supermemory MCP tools (`supermemory`, `supermemory_recall`,
+`supermemory_context`) for the current repository. Pass its absolute `workspace`
+path when calling a tool, especially in a multi-root or global setup. In
+Antigravity, if these tools are lazy-loaded under `<mcp_servers>` (such as
+`supermemory_supermemory`) rather than listed as top-level tools, read their
+schema file under `<appDataDir>/mcp/` and invoke them via `call_mcp_tool`.
 
 - If no `[SUPERMEMORY]` context was supplied, call `supermemory_context` once
-  before substantive work. Use `supermemory_recall` when prior decisions,
-  preferences, or solutions would help. Avoid duplicate recall for the same task.
+  before substantive work.
+- An injected `[SUPERMEMORY]` block only contains a small bootstrap preview.
+  Call `supermemory_recall` or `supermemory` (`mode: "search"`, `"profile"`, or
+  `"list"`) when the user explicitly asks to recall from Supermemory, asks about
+  personal/user facts, or when prior decisions, preferences, or solutions not
+  already shown in `[SUPERMEMORY]` would help.
 - When asked to "remember", "save this", or "don't forget", save the durable
   fact using `supermemory` with `mode: "add"`. Use `scope: "project"` for project
   facts and `scope: "user"` for personal preferences in this repository.

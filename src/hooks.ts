@@ -95,7 +95,7 @@ export async function runHook(
       }));
     }
     if (config.recallMode === "direct" && query.length >= 12 && !query.startsWith("/")) {
-      requests.push(service.search(query, "project", config.maxMemories, config.recallTimeoutMs).then((result) => {
+      requests.push(service.search(query, "all", config.maxMemories, config.recallTimeoutMs).then((result) => {
         for (const item of result.results) recalled.add(item.id);
         if (result.results.length) sections.push(`Relevant memories:\n${result.results.map((item) => `- ${item.memory ?? ""}`).join("\n")}`);
       }));
@@ -107,6 +107,9 @@ export async function runHook(
     if (config.recallMode === "advisory") sections.push("Before answering, use supermemory_recall if stored knowledge could help with this request.");
     if (/\b(remember|save this|don['’]t forget)\b/i.test(query)) {
       sections.push("The user asked to remember something. Use supermemory mode=add to save the durable fact with the appropriate scope.");
+    }
+    if (/\bsupermemory\b/i.test(query)) {
+      sections.push("The user explicitly referenced Supermemory. This hook only injects a small preview; call supermemory_recall or supermemory (via call_mcp_tool if lazy-loaded under <mcp_servers>) for a thorough query.");
     }
     // Mark this prompt even on failure so tool-loop invocations do not repeatedly stall.
     state.lastRecall = promptKey;
