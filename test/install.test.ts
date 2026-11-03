@@ -16,8 +16,15 @@ test("native installation is repeatable and uninstall retains unrelated files", 
   const longest = configSchema.parse({ recallTimeoutMs: 20000, requestTimeoutMs: 60000 });
   assert.ok(hooks.supermemory.PreInvocation[0]!.timeout * 1000 > longest.recallTimeoutMs);
   assert.ok(hooks.supermemory.Stop[0]!.timeout * 1000 > longest.requestTimeoutMs);
-  const mcp = JSON.parse(await readFile(join(target, "mcp_config.json"), "utf8")) as { mcpServers: { supermemory: { args: string[] } } };
+  const mcp = JSON.parse(await readFile(join(target, "mcp_config.json"), "utf8")) as {
+    mcpServers: { supermemory: { args: string[]; tools: Record<string, { eager: boolean }> } };
+  };
   assert.deepEqual(mcp.mcpServers.supermemory.args.slice(-2), ["--workspace", workspace]);
+  assert.deepEqual(mcp.mcpServers.supermemory.tools, {
+    supermemory: { eager: true },
+    supermemory_recall: { eager: true },
+    supermemory_context: { eager: true },
+  });
   const runtime = mcp.mcpServers.supermemory.args.find((arg) => arg.endsWith("runtime.mjs"));
   assert.equal(runtime, join(target, "runtime", "runtime.mjs"));
   assert.ok((await readFile(runtime!, "utf8")).length > 0);

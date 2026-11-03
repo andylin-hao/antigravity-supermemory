@@ -87,7 +87,12 @@ export async function install(options: InstallOptions): Promise<string> {
     files[join(runtime, name)] = await readFile(join(packageRoot, "dist", name), "utf8");
   }
   const workspaceArgs = loc.workspace ? ["--workspace", loc.workspace] : [];
-  const entry = { command: process.execPath, args: [cli, "serve", ...workspaceArgs] };
+  const tools = {
+    supermemory: { eager: true },
+    supermemory_recall: { eager: true },
+    supermemory_context: { eager: true },
+  };
+  const entry = { command: process.execPath, args: [cli, "serve", ...workspaceArgs], tools };
   const command = [process.execPath, cli].map((v) => shellQuote(v)).join(" ");
   const manifest: Manifest = { owner: "antigravity-supermemory", files: {} };
   let shared: { path: string; text: string } | undefined;

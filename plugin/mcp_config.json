@@ -2,7 +2,12 @@
   "mcpServers": {
     "supermemory": {
       "command": "antigravity-supermemory",
-      "args": ["serve"]
+      "args": ["serve"],
+      "tools": {
+        "supermemory": { "eager": true },
+        "supermemory_recall": { "eager": true },
+        "supermemory_context": { "eager": true }
+      }
     }
   }
 }
