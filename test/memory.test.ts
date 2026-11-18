@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fetchSessionAccount } from "../src/auth.js";
 import { configSchema } from "../src/config.js";
 import { MemoryService, executeMemory } from "../src/memory.js";
 import { safeError } from "../src/privacy.js";
@@ -52,4 +53,18 @@ test("failed API operations do not fall back to another endpoint or expose respo
     return true;
   });
   assert.equal(mock.requests.length, 1);
+});
+
+test("account lookup uses only the unversioned session route, with no v3 fallback", async (t) => {
+  let ok = true;
+  const mock = await api(t, (_request, response) => {
+    if (!ok) { response.statusCode = 404; response.end("{}"); return true; }
+    response.end(JSON.stringify({ user: { email: "dev@example.com", name: "Dev" }, org: { name: "Acme" } }));
+    return true;
+  });
+  assert.deepEqual(await fetchSessionAccount(`${mock.url}/`, "token"), { email: "dev@example.com", name: "Dev", organization: "Acme" });
+  assert.equal(mock.requests[0]?.headers.authorization, "Bearer token");
+  ok = false;
+  assert.equal(await fetchSessionAccount(mock.url, "token"), undefined);
+  assert.deepEqual(mock.requests.map((request) => request.path), ["/session", "/session"]);
 });

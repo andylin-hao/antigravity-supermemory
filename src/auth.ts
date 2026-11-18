@@ -636,27 +636,26 @@ export interface SessionAccount {
   organization?: string;
 }
 
+// The v5 API has no account route; /session is the unversioned auth session route.
 export async function fetchSessionAccount(baseUrl: string, token: string, timeoutMs = 8000): Promise<SessionAccount | undefined> {
-  for (const route of ["/session", "/v3/session"]) {
-    try {
-      const response = await environmentFetch(`${baseUrl.replace(/\/+$/, "")}${route}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-sm-source": "antigravity",
-          "x-sm-plugin-version": PLUGIN_VERSION,
-        },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!response.ok) continue;
-      const data = await response.json() as { user?: { email?: string; name?: string }; org?: { name?: string } } | null;
-      if (data && typeof data === "object") {
-        return {
-          email: data.user?.email,
-          name: data.user?.name,
-          organization: data.org?.name,
-        };
-      }
-    } catch { /* Optional account enrichment. */ }
-  }
+  try {
+    const response = await environmentFetch(`${baseUrl.replace(/\/+$/, "")}/session`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "x-sm-source": "antigravity",
+        "x-sm-plugin-version": PLUGIN_VERSION,
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!response.ok) return undefined;
+    const data = await response.json() as { user?: { email?: string; name?: string }; org?: { name?: string } } | null;
+    if (data && typeof data === "object") {
+      return {
+        email: data.user?.email,
+        name: data.user?.name,
+        organization: data.org?.name,
+      };
+    }
+  } catch { /* Optional account enrichment. */ }
   return undefined;
 }
