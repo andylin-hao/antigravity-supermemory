@@ -17,12 +17,15 @@ test("hooks recall once per prompt and capture once per completed turn across in
   const input = { conversationId: "session", workspacePaths: [root], transcriptPath, fullyIdle: true };
   await writeFile(transcriptPath, JSON.stringify({ step_index: 0, type: "USER_INPUT", content: "Remember that we use npm <private>secret</private>" }) + "\n");
   const recalled = await runHook("PreInvocation", input, config);
+  assert.ok("injectSteps" in recalled && recalled.injectSteps?.length === 1);
+  assert.equal(Object.keys(recalled.injectSteps[0]!.systemMessage).join(","), "systemMessage");
   assert.match(JSON.stringify(recalled), /Prefers concise answers/);
   assert.match(JSON.stringify(recalled), /Use npm test/);
   assert.match(JSON.stringify(recalled), /mode=add/);
   assert.match(JSON.stringify(recalled), /supermemory recalled 2 memories/);
   assert.match(await renderStatusline(config, { conversation_id: "session" }), /recalled 2 memories/);
   assert.doesNotMatch(JSON.stringify(mock.requests), /secret/);
+  assert.deepEqual(await runHook("PreInvocation", { ...input, invocationNum: 1, transcriptPath: join(root, "unreadable.jsonl") }, config), {});
   assert.deepEqual(await runHook("PreInvocation", input, config), {});
   assert.equal(mock.requests.length, 3);
   await appendFile(transcriptPath, JSON.stringify({ step_index: 2, type: "PLANNER_RESPONSE", content: "Done. <private>secret</private>" }) + "\n");

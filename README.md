@@ -7,29 +7,31 @@ and MCP interfaces.
 
 ## Features
 
-- **Automatic recall:** profile and recent project facts on the first model call;
-  semantic recall across project and personal repository memories on each new
-  substantive user prompt. Recall requests run concurrently with a ten-second
-  timeout each and no automatic retries.
-- **Automatic capture:** at an idle `Stop`, save new user/assistant turns with stable
-  document IDs and persistent checkpoints. Repeated hooks skip acknowledged saves.
-- **Memory tools:** add, search, profile, list, and forget; plus read-only recall
-  and session-context tools.
+- **Browser OAuth 2.1 (DCR + PKCE) & API key auth:** sign in with `antigravity-supermemory login`
+  (or `/supermemory-login`), inspect with `/supermemory-status`, or sign out and revoke
+  tokens with `/supermemory-logout`; `SUPERMEMORY_API_KEY` and JSONC `apiKey` remain supported.
+- **SessionStart & PreInvocation recall with deduplication:** profile and recent project facts
+  load at `SessionStart` (with welcome-back and prior-save failure notices); semantic recall
+  runs on new substantive prompts while deduplicating already-seen facts and caching cross-session
+  recall queries.
+- **Background turn capture:** at an idle `Stop`, a detached `capture-worker` uploads completed
+  user/assistant turns with secret/private redaction, opening-prompt deduplication, and optional
+  signal-keyword filtering without blocking the CLI prompt.
+- **Memory tools & `context-gatherer` subagent:** eager `supermemory`, `supermemory_recall`, and
+  `supermemory_context` MCP tools (with MCP `roots/list` workspace auto-detection), plus a
+  read-only `context-gatherer` subagent for multi-angle background synthesis.
+- **Session scoping:** automatically skips subagent conversations and headless `agy -p` runs by
+  default (`captureSubagents`, `captureHeadless`, `captureOrchestrated`).
 - **Visible CLI activity:** a conversation-scoped status line shows recall counts,
-  save progress, and failures. MCP results include a readable activity summary.
-- **Remember requests:** hooks and an always-on rule remind the agent to store the
-  fact when you say “remember”, “save this”, or “don't forget”.
-- **Codebase knowledge:** a `supermemory-init` skill explores and remembers build
-  commands, architecture, and conventions.
-- **Privacy:** remove `<private>...</private>` regions, including nested and
-  unclosed regions, before uploads and searches. Capture excludes tool output,
-  reasoning, and recognized synthetic/system messages.
-- **Shared repository identity:** the same canonical namespace and `sm_scope`
-  metadata convention as current OpenCode Supermemory.
+  save progress, signed-out state, and failures.
+- **Codebase knowledge:** `supermemory-init`, `supermemory-login`, `supermemory-logout`, and
+  `supermemory-status` skills.
+- **Shared repository identity:** canonical `repo_<name>__<hash>` namespace (plus `.agents/.supermemory/config.jsonc`
+  and `.claude/.supermemory-claude/config.json` compatibility) and `sm_scope` metadata convention.
 
 ## Quick start
 
-Requires **Node.js 22+**, npm, a Supermemory API key, and Antigravity.
+Requires **Node.js 22+**, npm, and Antigravity.
 
 ### 1. Install the plugin
 
@@ -37,13 +39,13 @@ Run this command to install for all workspaces. **npx downloads the packaged
 GitHub release automatically:**
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz install --global
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz install --global
 ```
 
 The package is available in the **Assets** section of the
-[v0.2.1 release](https://github.com/andylin-hao/antigravity-supermemory/releases/tag/v0.2.1):
-[download `antigravity-supermemory-0.2.1.tgz`](https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz).
-If you download it manually, run `npx --yes ./antigravity-supermemory-0.2.1.tgz install --global`
+[v0.3.0 release](https://github.com/andylin-hao/antigravity-supermemory/releases/tag/v0.3.0):
+[download `antigravity-supermemory-0.3.0.tgz`](https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz).
+If you download it manually, run `npx --yes ./antigravity-supermemory-0.3.0.tgz install --global`
 from the download directory. Distribution is through GitHub Releases; npm registry
 publication is still pending.
 
@@ -72,7 +74,7 @@ directory) and add your Supermemory key:
 For the exact path, run:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz config-path
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz config-path
 ```
 
 You can also set `SUPERMEMORY_API_KEY` in the environment of the **Antigravity
@@ -90,7 +92,7 @@ A successful response, even with no memories, confirms the plugin is connected.
 You can also check API connectivity from your terminal:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz status --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz status --workspace /absolute/path/to/your/project
 ```
 
 To try saving a memory, ask Antigravity:
@@ -177,7 +179,7 @@ budget across its uploads and resumes remaining chunks at a later idle Stop.
 If your IDE supports MCP but not native plugins/hooks, use:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz install --legacy --workspace /absolute/path/to/your/project
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz install --legacy --workspace /absolute/path/to/your/project
 ```
 
 The installer merges a project-specific server into
@@ -198,7 +200,7 @@ with the same install flags. Installation is repeatable and refuses to overwrite
 locally modified managed files. To remove a global installation:
 
 ```sh
-npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.2.1/antigravity-supermemory-0.2.1.tgz uninstall --global
+npx --yes https://github.com/andylin-hao/antigravity-supermemory/releases/download/v0.3.0/antigravity-supermemory-0.3.0.tgz uninstall --global
 ```
 
 For a workspace installation, replace `--global` with `--workspace /absolute/path/to/project`.
@@ -220,7 +222,7 @@ node dist/cli.js install --global
 
 All CLI commands above are also available as `node dist/cli.js <command>` from
 the checkout. To build your own distributable tarball, run `npm pack`; it creates
-`antigravity-supermemory-0.2.1.tgz` in the checkout root.
+`antigravity-supermemory-0.3.0.tgz` in the checkout root.
 
 ## Tools
 
@@ -309,8 +311,10 @@ containers and other agents' config overrides are not automatically discovered.
 
 ## Hook behavior and limitations
 
-- `PreInvocation` reads the transcript path supplied by Antigravity and injects
-  an `ephemeralMessage`. Repeated model/tool-loop calls for the same user prompt
+- `PreInvocation` reads `lastUserInput` (or the transcript path supplied by
+  Antigravity) and injects a `systemMessage` step (`systemMessage.metadata` is
+  intentionally omitted to avoid Antigravity's `ScrubInternalFields` map panic).
+  Repeated model/tool-loop calls (`invocationNum > 0` or the same user prompt)
   do not repeat searches. `off` disables hook recall, not explicit MCP tools.
 - `Stop` acts as a **turn boundary**, not session shutdown. Only `fullyIdle: true`
   permits capture. New turns are uploaded individually; raw tool output and
@@ -334,7 +338,7 @@ containers and other agents' config overrides are not automatically discovered.
   JSON. Capture has a bounded per-hook budget; a large backlog may require later
   Stop events. Pending captures cannot be flushed after Antigravity is killed.
 - Rules guide model behavior; they cannot guarantee that an explicit memory tool
-  is called. There is no native compaction interception or browser OAuth flow.
+  is called. There is no native compaction interception.
 
 ## Development and verification
 

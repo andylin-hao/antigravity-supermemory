@@ -1,10 +1,13 @@
 {
   "supermemory": {
+    "SessionStart": [
+      { "type": "command", "command": "antigravity-supermemory hook SessionStart", "timeout": 30 }
+    ],
     "PreInvocation": [
-      { "type": "command", "command": "antigravity-supermemory hook PreInvocation", "timeout": 10 }
+      { "type": "command", "command": "antigravity-supermemory hook PreInvocation", "timeout": 30 }
     ],
     "Stop": [
-      { "type": "command", "command": "antigravity-supermemory hook Stop", "timeout": 25 }
+      { "type": "command", "command": "antigravity-supermemory hook Stop", "timeout": 70 }
     ]
   }
 }

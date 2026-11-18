@@ -81,7 +81,7 @@ test("standalone CLI and hooks inherit lowercase/uppercase proxies and honor NO_
   assert.equal(tunnel.requests.length, 2);
   const transcript = join(root, "transcript.jsonl");
   await writeFile(transcript, '{"role":"user","content":"Use npm"}\n{"role":"assistant","content":"Configured npm"}\n');
-  const captured = await run(runtime, root, { http_proxy: tunnel.url }, ["hook", "Stop"], JSON.stringify({ conversationId: "proxy", workspacePaths: [root], transcriptPath: transcript, fullyIdle: true }));
+  const captured = await run(runtime, root, { http_proxy: tunnel.url, SUPERMEMORY_CAPTURE_SYNC: "true" }, ["hook", "Stop"], JSON.stringify({ conversationId: "proxy", workspacePaths: [root], transcriptPath: transcript, fullyIdle: true }));
   assert.deepEqual(JSON.parse(captured.stdout), { decision: "" });
   assert.ok(mock.requests.some((request) => request.path.endsWith("/document")));
   const connections = tunnel.requests.length;

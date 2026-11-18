@@ -2,17 +2,22 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
-import type { Config } from "./config.js";
+import { loadProjectConfig, namespacePattern, type Config } from "./config.js";
 
 export const hash = (value: string): string => createHash("sha256").update(value).digest("hex");
 
 function git(directory: string, ...args: string[]): string | undefined {
   try {
     return execFileSync("git", args, {
-      cwd: directory, encoding: "utf8", timeout: 1000,
-      stdio: ["ignore", "pipe", "ignore"], windowsHide: true,
+      cwd: directory,
+      encoding: "utf8",
+      timeout: 1000,
+      stdio: ["ignore", "pipe", "ignore"],
+      windowsHide: true,
     }).trim() || undefined;
-  } catch { return undefined; }
+  } catch {
+    return undefined;
+  }
 }
 
 /** Matches the normalized origin identity used by current opencode-supermemory. */
@@ -30,7 +35,14 @@ export function normalizeRemote(remote: string): string {
   return normalized.replace(/[?#].*$/, "").replace(/\/+$/, "").replace(/\.git$/i, "").replace(/\/{2,}/g, "/").toLowerCase();
 }
 
-export function projectIdentity(workspace: string, config: Pick<Config, "isolateWorktrees" | "projectContainerTag">) {
+export interface ProjectIdentity {
+  root: string;
+  name: string;
+  id: string;
+  tag: string;
+}
+
+export function projectIdentity(workspace: string, config: Config): ProjectIdentity {
   let root = git(workspace, "rev-parse", "--show-toplevel") ?? resolve(workspace);
   if (!config.isolateWorktrees) {
     const common = git(workspace, "rev-parse", "--git-common-dir");
@@ -43,5 +55,15 @@ export function projectIdentity(workspace: string, config: Pick<Config, "isolate
   const name = display?.slice(Math.max(display.lastIndexOf("/"), display.lastIndexOf(":")) + 1) || basename(root);
   const shortName = name.toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "").slice(0, 72).replace(/_+$/, "") || "unknown";
   const id = hash(!config.isolateWorktrees && normalized ? normalized : `path:${root}`).slice(0, 16);
-  return { root, name, id, tag: config.projectContainerTag ?? `repo_${shortName}__${id}` };
+  const projectConfig = loadProjectConfig(root);
+  const explicit = config.namespace
+    ?? config.repoContainerTag
+    ?? config.projectContainerTag
+    ?? projectConfig?.namespace
+    ?? projectConfig?.repoContainerTag
+    ?? projectConfig?.projectContainerTag;
+  if (explicit && !namespacePattern.test(explicit)) {
+    throw new Error("Invalid project namespace: v5 scopes allow 1-100 letters, digits, underscores, hyphens, or colons.");
+  }
+  return { root, name, id, tag: explicit ?? `repo_${shortName}__${id}` };
 }

@@ -4,9 +4,9 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { applyEdits, modify } from "jsonc-parser";
+import { z } from "zod";
 import { hookTimeoutSeconds, parseJsonc } from "./config.js";
 import { hash } from "./identity.js";
-import { z } from "zod";
 
 const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 const manifestSchema = z.object({
@@ -16,11 +16,22 @@ const manifestSchema = z.object({
   statusLine: z.object({ path: z.string(), original: z.unknown().optional(), installed: z.unknown() }).optional(),
 });
 type Manifest = z.infer<typeof manifestSchema>;
-export interface InstallOptions { workspace?: string; global?: boolean; legacy?: boolean; mcpConfig?: string; home?: string; noStatusline?: boolean }
+
+export interface InstallOptions {
+  workspace?: string;
+  global?: boolean;
+  legacy?: boolean;
+  mcpConfig?: string;
+  home?: string;
+  noStatusline?: boolean;
+}
 
 async function textIfExists(path: string): Promise<string | undefined> {
-  try { return await readFile(path, "utf8"); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
 }
 
 export async function atomicWrite(path: string, text: string): Promise<void> {
@@ -29,7 +40,9 @@ export async function atomicWrite(path: string, text: string): Promise<void> {
   try {
     await writeFile(temp, text, { mode: 0o600, flag: "wx" });
     await rename(temp, path);
-  } finally { await rm(temp, { force: true }); }
+  } finally {
+    await rm(temp, { force: true });
+  }
 }
 
 function locations(options: InstallOptions) {
@@ -117,16 +130,25 @@ export async function install(options: InstallOptions): Promise<string> {
     async function collect(source: string, target: string) {
       for (const item of await readdir(source, { withFileTypes: true })) {
         if (item.isDirectory()) await collect(join(source, item.name), join(target, item.name));
-        else if (item.isFile()) files[join(target, item.name)] = await readFile(join(source, item.name), "utf8");
+        else if (item.isFile()) {
+          let content = await readFile(join(source, item.name), "utf8");
+          if (item.name === "SKILL.md") {
+            content = content.replaceAll("antigravity-supermemory ", `${command} `);
+          }
+          files[join(target, item.name)] = content;
+        }
       }
     }
     await collect(join(packageRoot, "plugin"), loc.plugin);
     files[join(loc.plugin, "mcp_config.json")] = JSON.stringify({ mcpServers: { supermemory: entry } }, null, 2) + "\n";
     const suffix = workspaceArgs.map((v) => shellQuote(v)).join(" ");
-    files[join(loc.plugin, "hooks.json")] = JSON.stringify({ supermemory: {
-      PreInvocation: [{ type: "command", command: `${command} hook PreInvocation ${suffix}`.trim(), timeout: hookTimeoutSeconds.PreInvocation }],
-      Stop: [{ type: "command", command: `${command} hook Stop ${suffix}`.trim(), timeout: hookTimeoutSeconds.Stop }],
-    } }, null, 2) + "\n";
+    files[join(loc.plugin, "hooks.json")] = JSON.stringify({
+      supermemory: {
+        SessionStart: [{ type: "command", command: `${command} hook SessionStart ${suffix}`.trim(), timeout: hookTimeoutSeconds.SessionStart }],
+        PreInvocation: [{ type: "command", command: `${command} hook PreInvocation ${suffix}`.trim(), timeout: hookTimeoutSeconds.PreInvocation }],
+        Stop: [{ type: "command", command: `${command} hook Stop ${suffix}`.trim(), timeout: hookTimeoutSeconds.Stop }],
+      },
+    }, null, 2) + "\n";
   }
   if (options.global && !options.noStatusline) {
     const path = join(loc.home, ".gemini", "antigravity-cli", "settings.json");
@@ -184,9 +206,9 @@ export async function uninstall(options: InstallOptions): Promise<string> {
   let statusSettings: { path: string; text: string } | undefined;
   if (manifest.statusLine) {
     const { path, installed, original } = manifest.statusLine;
-    const text = await textIfExists(path) ?? "{}\n";
-    unchangedStatusLine(text, installed);
-    statusSettings = { path, text: editStatusLine(text, original) };
+    const currentText = await textIfExists(path) ?? "{}\n";
+    unchangedStatusLine(currentText, installed);
+    statusSettings = { path, text: editStatusLine(currentText, original) };
   }
   if (manifest.mcp) {
     const { path, name, entry } = manifest.mcp;

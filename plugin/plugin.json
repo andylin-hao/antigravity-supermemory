@@ -1,4 +1,21 @@
 {
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "supermemory",
-  "description": "Persistent Supermemory: automatic recall, turn capture, scoped memory tools, and codebase indexing. Requires antigravity-supermemory on PATH or the generated CLI installation."
+  "displayName": "Supermemory",
+  "version": "0.3.0",
+  "description": "Persistent Supermemory: automatic recall, background turn capture, OAuth sign-in, scoped memory tools, context-gatherer subagent, and codebase indexing.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "What do you remember about this project?",
+    "Search Supermemory for what we decided last time",
+    "Check my Supermemory connection"
+  ],
+  "author": {
+    "name": "antigravity-supermemory",
+    "url": "https://github.com/andylin-hao/antigravity-supermemory"
+  },
+  "homepage": "https://github.com/andylin-hao/antigravity-supermemory#readme",
+  "repository": "https://github.com/andylin-hao/antigravity-supermemory",
+  "license": "MIT",
+  "keywords": ["memory", "supermemory", "context", "recall", "mcp"]
 }
